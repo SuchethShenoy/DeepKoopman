@@ -41,7 +41,7 @@ params['num_steps_per_batch'] = 2
 params['learning_rate'] = 10 ** (-3)
 
 # settings related to timing
-params['max_time'] = 6 * 60 * 60  # 6 hours
+params['max_time'] = 0.5 * 60 * 60  # Changed 6 to 0.5 hour
 params['min_5min'] = .25
 params['min_20min'] = .02
 params['min_40min'] = .002
@@ -51,7 +51,7 @@ params['min_3hr'] = .000004
 params['min_4hr'] = .0000005
 params['min_halfway'] = 1
 
-for count in range(200):  # loop to do random experiments
+for count in range(2):  # loop to do random experiments
     params['data_train_len'] = r.randint(3, 6)
     params['batch_size'] = int(2 ** (r.randint(7, 9)))
     steps_to_see_all = num_examples / params['batch_size']
