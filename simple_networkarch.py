@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-
+import simple_helperfns
 
 def weight_variable(shape, var_name):
     """Create a variable for a weight matrix.
@@ -207,20 +207,19 @@ def k_block_apply(y, weights, delta_t):
 
     return y
 
-def create_koopman_net(encoder_widths, max_shifts_to_stack, encoder_act_type, shifts_middle, 
-                       decoder_widths, decoder_act_type,
-                       k_widths, shifts):
+def create_koopman_net(params):
     """Create a Koopman network that encodes, advances in time, and decodes.
 
     Arguments:
-        encoder_widths -- widths of encoder layers, list
-        max_shifts_to_stack -- number of shifts in data stack for encoder loss, int
-        encoder_act_type -- activation function for encoder, str
-        shifts_middle -- shifts to evaluate linearity loss, list
-        decoder_widths -- widths of decoder layers, list
-        decoder_act_type -- activation function for decoder, str
-        k_widths -- widths of K block layers, list
-        shifts -- shifts to evaluate predictionl loss, list
+        params -- dictionary of parameters for experiment, includes
+            encoder_widths -- widths of encoder layers, list
+            max_shifts_to_stack -- number of shifts in data stack for encoder loss, int
+            encoder_act_type -- activation function for encoder, str
+            shifts_middle -- shifts to evaluate linearity loss, list
+            decoder_widths -- widths of decoder layers, list
+            decoder_act_type -- activation function for decoder, str
+            k_widths -- widths of K block layers, list
+            shifts -- shifts to evaluate prediction loss, list
 
     Returns:
         x -- placeholder for input
@@ -232,36 +231,40 @@ def create_koopman_net(encoder_widths, max_shifts_to_stack, encoder_act_type, sh
     weights = dict()
     biases = dict()
 
-    x, weights_encoder, biases_encoder = encoder(encoder_widths, num_shifts_max=max_shifts_to_stack)
+    max_shifts_to_stack = simple_helperfns.num_shifts_in_stack(params)
+
+    x, weights_encoder, biases_encoder = encoder(params['encoder_widths'], num_shifts_max=max_shifts_to_stack)
     weights.update(weights_encoder)
     biases.update(biases_encoder)
     num_encoder_weights = len(weights_encoder)
-    g_list = encoder_apply(x, weights, biases, encoder_act_type, shifts_middle, num_encoder_weights)
+    g_list = encoder_apply(x, weights, biases, params['encoder_act_type'], params['shifts_middle'], num_encoder_weights=num_encoder_weights)
     
-    weights_k = k_block(k_widths)
+    weights_k = k_block(params['k_widths'])
     weights.update(weights_k)
 
-    weights_decoder, biases_decoder = decoder(decoder_widths)
+    weights_decoder, biases_decoder = decoder(params['decoder_widths'])
     weights.update(weights_decoder)
     biases.update(biases_decoder)
+
+    print(x, weights)
 
     y = []
     # y[0] is x[0,:,:] encoded and then decoded (no stepping forward)
     encoded_layer = g_list[0]
     num_decoder_weights = len(weights_decoder)
-    y.append(decoder_apply(encoded_layer, weights, biases, decoder_act_type, num_decoder_weights))
+    y.append(decoder_apply(encoded_layer, weights, biases, params['decoder_act_type'], num_decoder_weights))
 
     # g_list_omega[0] is for x[0,:,:], pairs with g_list[0]=encoded_layer
     advanced_layer = k_block_apply_one_shift(encoded_layer, weights)
 
-    for j in np.arange(max(shifts)):
+    for j in np.arange(max(params['shifts'])):
         # considering penalty on subset of yk+1, yk+2, yk+3, ...
-        if (j + 1) in shifts:
-            y.append(decoder_apply(advanced_layer, weights, biases, decoder_act_type, num_decoder_weights))
+        if (j + 1) in params['shifts']:
+            y.append(decoder_apply(advanced_layer, weights, biases, params['decoder_act_type'], num_decoder_weights))
         advanced_layer = k_block_apply_one_shift(advanced_layer, weights)
 
-    if len(y) != (len(shifts) + 1):
-        print("messed up looping over shifts! %r" % shifts)
+    if len(y) != (len(params['shifts']) + 1):
+        print("messed up looping over shifts! %r" % params['shifts'])
         raise ValueError(
             'length(y) not proper length: check create_koopman_net code and how defined params[shifts] in experiment')
 
