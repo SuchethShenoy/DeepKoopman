@@ -76,8 +76,8 @@ def encoder_apply_one_shift(prev_layer, weights, biases, act_type, name='E', num
             prev_layer = tf.nn.elu(prev_layer)
 
     # apply last layer without any nonlinearity
-    final = tf.matmul(prev_layer, weights['W%s%d' % (name, num_encoder_weights)]) + biases[
-        'b%s%d' % (name, num_encoder_weights)]
+    final = tf.matmul(prev_layer, weights['WE%d' % (num_encoder_weights)]) + biases[
+        'bE%d' % (num_encoder_weights)]
 
     return final
 
@@ -157,10 +157,112 @@ def decoder_apply(prev_layer, weights, biases, act_type, num_decoder_weights):
     # apply last layer without any nonlinearity
     return tf.matmul(prev_layer, weights['WD%d' % num_decoder_weights]) + biases['bD%d' % num_decoder_weights]
 
+def k_block(widths, name='K'):
+    """Create a K block network: a dictionary of weights (linear, no biases).
 
+    Arguments:
+        widths -- array or list of widths for layers of network
+        name -- string for prefix on weight matrices (default 'K' for K block)
 
+    Returns:
+        weights -- dictionary of weights
+    """
+    weights, biases = decoder(widths, name)
+    return weights
 
+def k_block_apply_one_shift(y, weights, name='K'):
+    """Apply an K block to data for only one time step (shift).
 
+    Arguments:
+        y -- input for a particular time step (shift)
+        weights -- dictionary of weights
+        name -- string for prefix on weight matrices (default 'K' for K block)
 
+    Returns:
+        array same size as input y, but advanced to next time step
+    """
+    num_k_weights = 0
+    for key, val in weights.items():
+        if key[:2] == 'WK':
+            num_k_weights += 1
+    # num_k_weights = len(weights)
+    for i in np.arange(num_k_weights):
+        y = tf.matmul(y, weights['WK%d' % (i + 1)])
+        
+    return y
 
+def k_block_apply(y, weights, delta_t):
+    """Apply an K block to data for delta t time steps (shifts).
 
+    Arguments:
+        y -- input for a particular time step (shift)
+        weights -- dictionary of weights
+        name -- string for prefix on weight matrices (default 'K' for K block)
+
+    Returns:
+        array same size as input y, but advanced to next time step
+    """
+    for i in range(delta_t):
+        y = k_block_apply_one_shift(y, weights)
+
+    return y
+
+def create_koopman_net(encoder_widths, max_shifts_to_stack, encoder_act_type, shifts_middle, 
+                       decoder_widths, decoder_act_type,
+                       k_widths, shifts):
+    """Create a Koopman network that encodes, advances in time, and decodes.
+
+    Arguments:
+        encoder_widths -- widths of encoder layers, list
+        max_shifts_to_stack -- number of shifts in data stack for encoder loss, int
+        encoder_act_type -- activation function for encoder, str
+        shifts_middle -- shifts to evaluate linearity loss, list
+        decoder_widths -- widths of decoder layers, list
+        decoder_act_type -- activation function for decoder, str
+        k_widths -- widths of K block layers, list
+        shifts -- shifts to evaluate predictionl loss, list
+
+    Returns:
+        x -- placeholder for input
+        y -- list, output of decoder applied to each shift: g_list[0], K*g_list[0], K^2*g_list[0], ..., length num_shifts + 1
+        g_list -- list, output of encoder applied to each shift in input x, length num_shifts_middle + 1
+        weights -- dictionary of weights
+        biases -- dictionary of biases
+    """
+    weights = dict()
+    biases = dict()
+
+    x, weights_encoder, biases_encoder = encoder(encoder_widths, num_shifts_max=max_shifts_to_stack)
+    weights.update(weights_encoder)
+    biases.update(biases_encoder)
+    num_encoder_weights = len(weights_encoder)
+    g_list = encoder_apply(x, weights, biases, encoder_act_type, shifts_middle, num_encoder_weights)
+    
+    weights_k = k_block(k_widths)
+    weights.update(weights_k)
+
+    weights_decoder, biases_decoder = decoder(decoder_widths)
+    weights.update(weights_decoder)
+    biases.update(biases_decoder)
+
+    y = []
+    # y[0] is x[0,:,:] encoded and then decoded (no stepping forward)
+    encoded_layer = g_list[0]
+    num_decoder_weights = len(weights_decoder)
+    y.append(decoder_apply(encoded_layer, weights, biases, decoder_act_type, num_decoder_weights))
+
+    # g_list_omega[0] is for x[0,:,:], pairs with g_list[0]=encoded_layer
+    advanced_layer = k_block_apply_one_shift(encoded_layer, weights)
+
+    for j in np.arange(max(shifts)):
+        # considering penalty on subset of yk+1, yk+2, yk+3, ...
+        if (j + 1) in shifts:
+            y.append(decoder_apply(advanced_layer, weights, biases, decoder_act_type, num_decoder_weights))
+        advanced_layer = k_block_apply_one_shift(advanced_layer, weights)
+
+    if len(y) != (len(shifts) + 1):
+        print("messed up looping over shifts! %r" % shifts)
+        raise ValueError(
+            'length(y) not proper length: check create_koopman_net code and how defined params[shifts] in experiment')
+
+    return x, y, g_list, weights, biases
