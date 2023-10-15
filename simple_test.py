@@ -62,7 +62,7 @@ def exp_test():
     k = 12  # number of elevated states
     num_initial_conditions = 5000   # per training file
     params['delta_t'] = 0.02        # check if it affects model
-    params['folder_name'] = 'exp'
+    params['folder_name'] = 'exp_simple_1'
 
     params['num_shifts'] = 30
     params['num_shifts_middle'] = params['len_time'] - 1
@@ -94,9 +94,9 @@ def exp_test():
     params['L2_lam'] = 10 ** -14
     params['Linf_lam'] = 10 ** -8
 
-    params['encoder_widths'] = [n, 128, k]
-    params['decoder_widths'] = [k, 128, n]
-    params['k_widths'] = [k, 64, k]
+    params['encoder_widths'] = [n, 128, 256, k]
+    params['decoder_widths'] = [k, 256, 128, n]
+    params['k_widths'] = [k, 64, 128, 64, k]
 
     simple_training.main_exp(copy.deepcopy(params))
 
