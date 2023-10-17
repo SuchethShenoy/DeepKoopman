@@ -11,9 +11,9 @@ def main():
     params['len_time'] = 800
     n = 2   # number of states
     k = 4  # number of lifted states
-    num_initial_conditions = 5000   # per training file
-    params['delta_t'] = 0.02        # check if it affects model
-    params['folder_name'] = 'exp_duffing_1'
+    num_initial_conditions = 700   # per training file
+    # params['delta_t'] = 0.02        # check if it affects model
+    params['folder_name'] = 'exp/exp_duffing_1'
 
     params['num_shifts'] = params['len_time'] - 1
     params['num_shifts_middle'] = params['len_time'] - 1
@@ -27,7 +27,7 @@ def main():
     params['num_steps_per_batch'] = 2
     params['learning_rate'] = 10 ** (-3)
 
-    params['max_time'] = 0.5 * 60 * 60  # Changed 6 to 0.5 hour
+    params['max_time'] = 1 * 60 * 60  # 1 hours
     params['min_5min'] = .25
     params['min_20min'] = .02
     params['min_40min'] = .002
@@ -49,6 +49,7 @@ def main():
     params['encoder_act_type'] = 'sigmoid'
     params['decoder_widths'] = [k, 128, 256, 128, n]
     params['decoder_act_type'] = 'linear'
+    params['use_bias'] = False
     params['k_widths'] = [k, 64, 128, 64, k]
 
     simple_training.main_exp(copy.deepcopy(params))

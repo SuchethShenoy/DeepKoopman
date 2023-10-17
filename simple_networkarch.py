@@ -52,7 +52,7 @@ def encoder(widths, num_shifts_max):
     
     return x, weights, biases
 
-def encoder_apply_one_shift(prev_layer, weights, biases, act_type, name='E', num_encoder_weights=1):
+def encoder_apply_one_shift(prev_layer, weights, biases, act_type, name='E', num_encoder_weights=1, use_bias=True):
     """Apply an encoder to data for only one time step (shift).
 
     Arguments:
@@ -67,7 +67,12 @@ def encoder_apply_one_shift(prev_layer, weights, biases, act_type, name='E', num
         final -- output of encoder network applied to input prev_layer (a particular time step / shift)
     """
     for i in np.arange(num_encoder_weights - 1):
-        prev_layer = tf.matmul(prev_layer, weights['W%s%d' % (name, i + 1)]) + biases['b%s%d' % (name, i + 1)]
+        
+        if use_bias:
+            prev_layer = tf.matmul(prev_layer, weights['W%s%d' % (name, i + 1)]) + biases['b%s%d' % (name, i + 1)]
+        else:
+            prev_layer = tf.matmul(prev_layer, weights['W%s%d' % (name, i + 1)])
+
         if act_type == 'sigmoid':
             prev_layer = tf.sigmoid(prev_layer)
         elif act_type == 'relu':
@@ -76,12 +81,15 @@ def encoder_apply_one_shift(prev_layer, weights, biases, act_type, name='E', num
             prev_layer = tf.nn.elu(prev_layer)
 
     # apply last layer without any nonlinearity
-    final = tf.matmul(prev_layer, weights['WE%d' % (num_encoder_weights)]) + biases[
-        'bE%d' % (num_encoder_weights)]
+    if use_bias:
+        final = tf.matmul(prev_layer, weights['WE%d' % (num_encoder_weights)]) + biases[
+            'bE%d' % (num_encoder_weights)]
+    else:
+        final = tf.matmul(prev_layer, weights['WE%d' % (num_encoder_weights)])
 
     return final
 
-def encoder_apply(x, weights, biases, act_type, shifts_middle, name='E', num_encoder_weights=1):
+def encoder_apply(x, weights, biases, act_type, shifts_middle, name='E', num_encoder_weights=1, use_bias=True):
     """Apply an encoder to data x.
 
     Arguments:
@@ -108,7 +116,7 @@ def encoder_apply(x, weights, biases, act_type, shifts_middle, name='E', num_enc
         else:
             x_shift = tf.squeeze(x[shift, :, :])
         y.append(
-            encoder_apply_one_shift(x_shift, weights, biases, act_type, name, num_encoder_weights))
+            encoder_apply_one_shift(x_shift, weights, biases, act_type, name, num_encoder_weights, use_bias))
     return y
 
 def decoder(widths, name='D'):
@@ -130,7 +138,7 @@ def decoder(widths, name='D'):
         biases['b%s%d' % (name, ind)] = bias_variable([widths[i + 1], ], var_name='b%s%d' % (name, ind))
     return weights, biases
 
-def decoder_apply(prev_layer, weights, biases, act_type, num_decoder_weights):
+def decoder_apply(prev_layer, weights, biases, act_type, num_decoder_weights, use_bias=True):
     """Apply a decoder to data prev_layer
 
     Arguments:
@@ -144,7 +152,12 @@ def decoder_apply(prev_layer, weights, biases, act_type, num_decoder_weights):
         output of decoder network applied to input prev_layer
     """
     for i in np.arange(num_decoder_weights - 1):
-        prev_layer = tf.matmul(prev_layer, weights['WD%d' % (i + 1)]) + biases['bD%d' % (i + 1)]
+        
+        if use_bias:
+            prev_layer = tf.matmul(prev_layer, weights['WD%d' % (i + 1)]) + biases['bD%d' % (i + 1)]
+        else:
+            prev_layer = tf.matmul(prev_layer, weights['WD%d' % (i + 1)])
+        
         if act_type == 'sigmoid':
             prev_layer = tf.sigmoid(prev_layer)
         elif act_type == 'relu':
@@ -155,7 +168,12 @@ def decoder_apply(prev_layer, weights, biases, act_type, num_decoder_weights):
             prev_layer = prev_layer
 
     # apply last layer without any nonlinearity
-    return tf.matmul(prev_layer, weights['WD%d' % num_decoder_weights]) + biases['bD%d' % num_decoder_weights]
+    if use_bias:
+        output = tf.matmul(prev_layer, weights['WD%d' % num_decoder_weights]) + biases['bD%d' % num_decoder_weights]
+    else:
+        output = tf.matmul(prev_layer, weights['WD%d' % num_decoder_weights])
+    
+    return output
 
 def k_block(widths, name='K'):
     """Create a K block network: a dictionary of weights (linear, no biases).
@@ -191,7 +209,7 @@ def k_block_apply_one_shift(y, weights, name='K'):
         
     return y
 
-def k_block_apply(y, weights, delta_t):
+def k_block_apply_multiple_shifts(y, weights, shift):
     """Apply an K block to data for delta t time steps (shifts).
 
     Arguments:
@@ -202,7 +220,7 @@ def k_block_apply(y, weights, delta_t):
     Returns:
         array same size as input y, but advanced to next time step
     """
-    for i in range(delta_t):
+    for i in range(shift):
         y = k_block_apply_one_shift(y, weights)
 
     return y
@@ -237,7 +255,8 @@ def create_koopman_net(params):
     weights.update(weights_encoder)
     biases.update(biases_encoder)
     num_encoder_weights = len(weights_encoder)
-    g_list = encoder_apply(x, weights, biases, params['encoder_act_type'], params['shifts_middle'], num_encoder_weights=num_encoder_weights)
+    g_list = encoder_apply(x, weights, biases, params['encoder_act_type'], params['shifts_middle'], 
+                           num_encoder_weights=num_encoder_weights, use_bias=params['use_bias'])
     
     weights_k = k_block(params['k_widths'])
     weights.update(weights_k)
@@ -246,13 +265,12 @@ def create_koopman_net(params):
     weights.update(weights_decoder)
     biases.update(biases_decoder)
 
-    print(x, weights)
-
     y = []
     # y[0] is x[0,:,:] encoded and then decoded (no stepping forward)
     encoded_layer = g_list[0]
     num_decoder_weights = len(weights_decoder)
-    y.append(decoder_apply(encoded_layer, weights, biases, params['decoder_act_type'], num_decoder_weights))
+    y.append(decoder_apply(encoded_layer, weights, biases, params['decoder_act_type'], 
+                           num_decoder_weights=num_decoder_weights, use_bias=params['use_bias']))
 
     # g_list_omega[0] is for x[0,:,:], pairs with g_list[0]=encoded_layer
     advanced_layer = k_block_apply_one_shift(encoded_layer, weights)
@@ -260,7 +278,8 @@ def create_koopman_net(params):
     for j in np.arange(max(params['shifts'])):
         # considering penalty on subset of yk+1, yk+2, yk+3, ...
         if (j + 1) in params['shifts']:
-            y.append(decoder_apply(advanced_layer, weights, biases, params['decoder_act_type'], num_decoder_weights))
+            y.append(decoder_apply(advanced_layer, weights, biases, params['decoder_act_type'], 
+                                   num_decoder_weights=num_decoder_weights, use_bias=params['use_bias']))
         advanced_layer = k_block_apply_one_shift(advanced_layer, weights)
 
     if len(y) != (len(params['shifts']) + 1):

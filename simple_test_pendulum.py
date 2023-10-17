@@ -53,7 +53,7 @@ def model_test():
     print(f"weights: {weights}")
     print(f"biases: {biases}")
 
-def exp_test():
+def main():
 
     params = {}
     params['data_name'] = 'Pendulum'
@@ -62,7 +62,7 @@ def exp_test():
     k = 12  # number of elevated states
     num_initial_conditions = 5000   # per training file
     params['delta_t'] = 0.02        # check if it affects model
-    params['folder_name'] = 'exp_simple_1'
+    params['folder_name'] = 'exp/exp_pendulum'
 
     params['num_shifts'] = 30
     params['num_shifts_middle'] = params['len_time'] - 1
@@ -101,4 +101,4 @@ def exp_test():
     simple_training.main_exp(copy.deepcopy(params))
 
 if __name__ == '__main__':
-    exp_test()
+    main()
