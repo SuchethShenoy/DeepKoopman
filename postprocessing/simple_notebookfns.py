@@ -89,6 +89,9 @@ def create_dummy_koopman_net(fname):
     params = get_params_from_file(fname)
     W, b = load_weights_koopman(fname)
 
+    if 'use_bias' not in params:
+        params['use_bias'] = False
+
     tf.keras.backend.clear_session()
     input_layer = tf.keras.Input(shape=(params['encoder_widths'][0],))
 

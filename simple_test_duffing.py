@@ -7,15 +7,15 @@ import simple_training
 def main():
 
     params = {}
-    params['data_name'] = 'Duffing'
+    params['data_name'] = 'Duffing_uniformRandom'
     params['len_time'] = 800
     n = 2   # number of states
-    k = 4  # number of lifted states
+    k = 25  # number of lifted states
     num_initial_conditions = 700   # per training file
     # params['delta_t'] = 0.02        # check if it affects model
-    params['folder_name'] = 'exp/exp_duffing_1'
+    params['folder_name'] = 'exp/exp_duffing_uniformRandom_2'
 
-    params['num_shifts'] = params['len_time'] - 1
+    params['num_shifts'] = 399  #params['len_time'] - 1
     params['num_shifts_middle'] = params['len_time'] - 1
     max_shifts = max(params['num_shifts'], params['num_shifts_middle'])
     num_examples = num_initial_conditions * (params['len_time'] - max_shifts)
@@ -47,8 +47,8 @@ def main():
 
     params['encoder_widths'] = [n, 128, 256, k]
     params['encoder_act_type'] = 'sigmoid'
-    params['decoder_widths'] = [k, 128, 256, 128, n]
-    params['decoder_act_type'] = 'linear'
+    params['decoder_widths'] = [k, 256, 128, n]
+    params['decoder_act_type'] = 'sigmoid'
     params['use_bias'] = False
     params['k_widths'] = [k, 64, 128, 64, k]
 

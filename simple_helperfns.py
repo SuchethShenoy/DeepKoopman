@@ -212,6 +212,9 @@ def set_defaults(params):
     if 'decoder_act_type' not in params:
         print("setting default: activation function is Sigmoid")
         params['decoder_act_type'] = 'sigmoid'
+    if 'use_bias' not in params:
+        print("setting default: Biases are used in encoder and decoder")
+        params['use_bias'] = True
 
     # defaults related to initialization of parameters
     if 'seed' not in params:
