@@ -12,8 +12,8 @@ f_ud = @(t,x,u) ( x + (deltaT/6) * ( k1(t,x,u) + 2*k2(t,x,u) + 2*k3(t,x,u) + k4(
 Traj = cell(1,Ntraj); % Cell array of trajectories
 for j = 1:Ntraj
     %textwaitbar(j, Ntraj, "Collecting data without control")    
-    xx = randn(n,1);
-    xx = xx / norm(xx); % Unitial conditions on unit circle
+    xx = rand(n,1);
+    %xx = xx / norm(xx); % Unitial conditions on unit circle
     for i = 1:trajLen-1
         xx = [xx f_ud(0,xx(:,end),0)];
     end
