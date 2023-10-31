@@ -15,11 +15,11 @@ def main():
     # params['delta_t'] = 0.02        # check if it affects model
     params['folder_name'] = 'exp/exp_duffing_uniformRandom_2'
 
-    params['num_shifts'] = 399  #params['len_time'] - 1
+    params['num_shifts'] = params['len_time'] - 1
     params['num_shifts_middle'] = params['len_time'] - 1
     max_shifts = max(params['num_shifts'], params['num_shifts_middle'])
     num_examples = num_initial_conditions * (params['len_time'] - max_shifts)
-    params['recon_lam'] = .001
+    params['recon_lam'] = 1.0   #.001
     params['L1_lam'] = 0.0
     params['auto_first'] = 1
 
@@ -50,7 +50,7 @@ def main():
     params['decoder_widths'] = [k, 256, 128, n]
     params['decoder_act_type'] = 'sigmoid'
     params['use_bias'] = False
-    params['k_widths'] = [k, 64, 128, 64, k]
+    params['k_widths'] = [k, 64, k]
 
     simple_training.main_exp(copy.deepcopy(params))
 
