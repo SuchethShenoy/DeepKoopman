@@ -28,10 +28,10 @@ def main():
     params['learning_rate'] = 10 ** (-3)
 
     params['max_time'] = 1 * 60 * 60  # 1 hours
-    params['min_5min'] = .25
-    params['min_20min'] = .02
-    params['min_40min'] = .002
-    params['min_1hr'] = .0002
+    params['min_5min'] = 100.0    #.25
+    params['min_20min'] = 100.0    #.02
+    params['min_40min'] = 10.0    #.002
+    params['min_1hr'] = 10.0      #.0002
     params['min_2hr'] = .00002
     params['min_3hr'] = .000004
     params['min_4hr'] = .0000005
